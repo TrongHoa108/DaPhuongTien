@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nhận dạng đơn từ tiếng Việt</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <p class="kicker">Đồ án xử lý tiếng nói · isolated word</p>
+      <h1>Speech-to-Text mức từ</h1>
+      <p class="sub">MFCC + năng lượng + ZCR + pitch · phân loại KNN</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>1. Tải file hoặc thu âm</h2>
+        <p class="hint">File .wav một từ trong danh sách. Mic ghi PCM 16 kHz.</p>
+        <div class="row">
+          <label class="btn">
+            Chọn file
+            <input id="file" type="file" accept="audio/*,.wav" hidden />
+          </label>
+          <button type="button" id="rec" class="btn solid">Thu âm</button>
+          <button type="button" id="stop" class="btn" disabled>Dừng</button>
+        </div>
+        <p id="status" class="status">Chưa có âm thanh</p>
+        <audio id="player" controls></audio>
+      </section>
+
+      <section class="card result" id="out">
+        <h2>2. Kết quả</h2>
+        <p class="empty">Nhận dạng xong sẽ hiện từ và độ tin cậy.</p>
+      </section>
+
+      <section class="card" id="metrics">
+        <h2>3. Độ chính xác lần huấn luyện</h2>
+        <p class="empty">Chạy <code>python scripts/train.py</code> để có số liệu.</p>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
