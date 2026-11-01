@@ -6,14 +6,23 @@ __pycache__/
 Thumbs.db
 
 data/features.csv
-data/models/
+data/models/*
+!data/models/.gitkeep
+!data/models/knn.joblib
 data/wav/*.wav
 !data/wav/.gitkeep
+
+data/thu_am/
+data/thu_am_HT/
+thu_am_HT.zip
+reports/extract_log.txt
 
 reports/*.png
 reports/*.json
 reports/*.txt
 !reports/.gitkeep
+!reports/metrics.json
 
 uploads/
 *.joblib
+!data/models/knn.joblib

@@ -24,7 +24,7 @@ SAMPLE_RATE = 16000
 N_MFCC = 13
 N_FFT = 512
 HOP_LENGTH = 160  # 10 ms at 16 kHz
-K_NEIGHBORS = 5
+K_NEIGHBORS = 3  # ít mẫu / từ: k nhỏ hơn thường chính xác hơn
 REJECT_RATIO = 1.8  # khoảng cách xa hơn mean train * hệ số thì từ chối
 
 FEATURE_COLUMNS = (

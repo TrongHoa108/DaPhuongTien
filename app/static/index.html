@@ -3,42 +3,79 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Nhận dạng đơn từ tiếng Việt</title>
+    <title>VietWord STT — Âm thanh thành văn bản</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header>
-      <p class="kicker">Đồ án xử lý tiếng nói · isolated word</p>
-      <h1>Speech-to-Text mức từ</h1>
-      <p class="sub">MFCC + năng lượng + ZCR + pitch · phân loại KNN</p>
+    <div class="bg-glow" aria-hidden="true"></div>
+    <div class="bg-wave" aria-hidden="true"></div>
+
+    <header class="top">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="brand-name">VietWord STT</p>
+          <p class="brand-tag">Nói một đoạn — chuyển thành văn bản</p>
+        </div>
+      </div>
+      <div id="health" class="badge badge-wait" title="Trạng thái model">Đang kiểm tra…</div>
     </header>
 
-    <main>
-      <section class="card">
-        <h2>1. Tải file hoặc thu âm</h2>
-        <p class="hint">File .wav một từ trong danh sách. Mic ghi PCM 16 kHz.</p>
-        <div class="row">
-          <label class="btn">
-            Chọn file
-            <input id="file" type="file" accept="audio/*,.wav" hidden />
-          </label>
-          <button type="button" id="rec" class="btn solid">Thu âm</button>
-          <button type="button" id="stop" class="btn" disabled>Dừng</button>
+    <main class="shell">
+      <section class="hero-block">
+        <h1 class="product-title">VietWord STT</h1>
+        <p class="lede">
+          Thu mic hoặc tải file âm thanh. Nói rõ từng từ, nghỉ ngắn giữa các từ — hệ thống cắt đoạn rồi ghép thành câu.
+        </p>
+      </section>
+
+      <section class="stage" aria-label="Thu âm và tải file">
+        <div class="mic-wrap">
+          <canvas id="level" class="level-canvas" width="280" height="280" aria-hidden="true"></canvas>
+          <button type="button" id="rec" class="mic-btn" aria-pressed="false" title="Thu âm">
+            <svg class="icon-mic" viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"
+              />
+            </svg>
+            <svg class="icon-stop" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+              <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" />
+            </svg>
+          </button>
         </div>
-        <p id="status" class="status">Chưa có âm thanh</p>
-        <audio id="player" controls></audio>
+        <p id="status" class="status">Sẵn sàng — nhấn mic để thu đoạn nói</p>
+        <p class="hint-line">Mỗi từ thuộc danh sách đã thu. Nghỉ ~0,3–0,5 giây giữa các từ.</p>
+
+        <div id="drop" class="dropzone" tabindex="0" role="button" aria-label="Kéo thả hoặc chọn file âm thanh">
+          <input id="file" type="file" accept="audio/*,.wav,.mp3,.m4a,.webm" hidden />
+          <p class="drop-title">Kéo thả file âm thanh vào đây</p>
+          <p class="drop-sub">WAV, MP3, M4A, WebM — hoặc <span class="linkish">chọn file</span></p>
+        </div>
       </section>
 
-      <section class="card result" id="out">
-        <h2>2. Kết quả</h2>
-        <p class="empty">Nhận dạng xong sẽ hiện từ và độ tin cậy.</p>
-      </section>
-
-      <section class="card" id="metrics">
-        <h2>3. Độ chính xác lần huấn luyện</h2>
-        <p class="empty">Chạy <code>python scripts/train.py</code> để có số liệu.</p>
+      <section class="transcript-panel" aria-label="Văn bản nhận dạng">
+        <div class="transcript-head">
+          <h2>Văn bản</h2>
+          <button type="button" id="copy" class="btn-ghost" disabled>Sao chép</button>
+        </div>
+        <div id="out" class="transcript" data-empty="true">
+          Kết quả sẽ hiện ở đây…
+        </div>
+        <audio id="player" controls class="player"></audio>
+        <p id="meta" class="meta-line" hidden></p>
       </section>
     </main>
+
+    <footer class="foot">
+      <span>Đồ án: đặc trưng âm thanh + KNN · tiếng Việt</span>
+    </footer>
 
     <script src="/static/app.js"></script>
   </body>

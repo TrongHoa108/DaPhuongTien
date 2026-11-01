@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: vietword-stt
+    runtime: docker
+    plan: free
+    branch: develop
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"

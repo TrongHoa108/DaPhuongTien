@@ -27,8 +27,9 @@ def extract_vector(y: np.ndarray, sr: int = SAMPLE_RATE) -> dict[str, float]:
     mfcc = librosa.feature.mfcc(
         y=y, sr=sr, n_mfcc=N_MFCC, n_fft=N_FFT, hop_length=HOP_LENGTH
     )
-    # CMVN theo từng file — giảm lệch giọng
-    mfcc = (mfcc - mfcc.mean(axis=1, keepdims=True)) / (mfcc.std(axis=1, keepdims=True) + 1e-6)
+    # Không CMVN theo từng file trước khi lấy mean — nếu trừ mean theo khung
+    # thì mfcc_*_mean ≈ 0 với mọi từ, KNN không phân biệt được.
+    # Lệch kênh/giọng được StandardScaler xử lý trên toàn tập train.
 
     feats: dict[str, float] = {}
     for i in range(N_MFCC):

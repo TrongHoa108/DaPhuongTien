@@ -16,7 +16,7 @@ import soundfile as sf
 
 from src.audio import load_mono
 from src.config import FEATURES_PATH, MODELS_DIR, REPORTS_DIR, SAMPLE_RATE, UPLOADS_DIR
-from src.recognize import load_model, predict_array
+from src.recognize import load_model, predict_utterance
 
 STATIC = Path(__file__).resolve().parent / "static"
 app = FastAPI(title="Nhận dạng đơn từ tiếng Việt")
@@ -63,6 +63,6 @@ async def predict(file: UploadFile = File(...)):
                 y = np.mean(y, axis=1)
         except Exception as exc:
             raise HTTPException(400, f"Không đọc được file âm thanh: {exc}") from exc
-    result = predict_array(y.astype(np.float32), load_model())
+    result = predict_utterance(y.astype(np.float32), load_model())
     result["filename"] = file.filename
     return result

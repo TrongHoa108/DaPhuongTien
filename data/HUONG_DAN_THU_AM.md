@@ -25,7 +25,31 @@ Công thức:
 
 `số file = số từ × số thành viên × 3`
 
-Ví dụ 25 từ × 4 người × 3 lần = **300 file wav**.
+Bảng **đơn từ** (tiếng một chữ, không lấy học sinh / Việt Nam / không phải…): mỗi cột một chữ cái, trên xuống 1 âm → 2 âm → 3 âm.
+
+Mở `D:\CSDL_DPT\DON_TU_MOT_CHU.xlsx` (đóng file Excel cũ nếu đang khóa). Khoảng 6.200 tiếng một chữ. Mã file: `data/wordlist.csv`.
+
+Danh sách đủ mã file (377 dòng): `data/wordlist.csv`. Copy **bảng cột** sang Google Sheet để chia việc.
+
+Cấu trúc 3 lớp (đủ bộ):
+
+1. **Âm đơn** — 12 nguyên âm: `a ă â e ê i o ô ơ u ư y`
+2. **Âm đơn + dấu** — mỗi nguyên âm đủ 6 thanh (72 mục): a/á/à/ả/ã/ạ, ă/ắ/ằ/ẳ/ẵ/ặ, …
+3. **Ghép 1–4 âm, từ có nghĩa** — âm đơn đó + 1, 2, 3 hoặc 4 âm khác (có dấu hoặc không), chỉ lấy từ tiếng Việt có nghĩa (1 tiếng)
+
+| Lớp | Cột `nhom` | Số mục | Ví dụ |
+|---|---|---|---|
+| Âm đơn | `am_don` | 12 | a, ă, ô, ơ, y |
+| Âm đơn + dấu | `am_don_dau` | 60 | á, ạ, ế, ữ, ỵ |
+| Ghép 1 âm | `ghep_1` | 137 | ba, ăn, về, đi, cô |
+| Ghép 2 âm | `ghep_2` | 83 | bác, đất, một, nhà |
+| Ghép 3 âm | `ghep_3` | 51 | phải, sách, trời |
+| Ghép 4 âm | `ghep_4` | 33 | không, người, nhanh |
+| Ghép 5 (1 tiếng dài) | `ghep_5` | 1 | chuyện |
+
+Mỗi nguyên âm đều có đủ 6 dấu và có từ có nghĩa ở mức ghép 1, 2, 3, 4.
+
+Ví dụ 377 × 4 người × 3 lần = **4524 file wav**. Chia thu theo `nhom` rồi theo `am_goc`.
 
 ---
 
@@ -41,13 +65,12 @@ Ví dụ 25 từ × 4 người × 3 lần = **300 file wav**.
 
 Một bạn (gọi là **thủ thư dữ liệu**) tạo Google Sheet 2 tab:
 
-**Tab A – Danh sách từ** (cột bắt buộc):
+**Tab A – Bảng từ:** import `data/wordlist_bang.csv`.
 
-| stt | chữ | mã_file |
-|---|---|---|
-| 1 | ba | ba0 |
-| 2 | bác | bac1 |
-| 3 | cảng | cang3 |
+- Mỗi cột = một nguyên âm (`a ă â e ê i o ô ơ u ư y`)
+- Từ trên xuống: 1 âm (đủ 6 dấu) → 2 âm → 3 âm → 4 âm
+- Ô trống = nguyên âm đó không có thêm từ ở mức đó
+- Mã file tra trong `data/wordlist.csv` (cột `text` / `code`)
 
 **Tab B – Checklist thu âm**
 
@@ -67,7 +90,7 @@ Số **dấu** kiểu VNI, **đặt sau từ**. Từ không dấu thêm `0`.
 | huyền | 2 | bà | `ba2` |
 | hỏi | 3 | cảng | `cang3` |
 | ngã | 4 | mã | `ma4` |
-| nặng | 5 | đất | `d-at5` |
+| nặng | 5 | thật | `tha+t5` |
 
 Chữ đặc biệt:
 
@@ -84,9 +107,11 @@ Chữ đặc biệt:
 Thêm ví dụ:
 
 - cố → `co+1`
-- cân → `ca+n1`
+- đất → `d-a+t1` (đ → `d-`, â → `a+`, sắc → `1`)
 - cơm → `coom2` (ơ → `oo`, huyền → `2`)
-- đất → `d-at5` (đ → `d-`, nặng → `5`)
+- người → `nguuooi2` (ư → `uu`, ơ → `oo`)
+- được → `d-uuooc5` (đ → `d-`, ư → `uu`, ơ → `oo`, nặng → `5`)
+- thật → `tha+t5` (â → `a+`, nặng → `5`)
 
 Từ khó (ươ, diphthong…): **đừng tự đoán**. Thủ thư điền cột `mã_file` trên Sheet, cả nhóm **copy đúng mã đó**.
 
@@ -112,7 +137,7 @@ Minh đọc “cảng” lần 1:
 
 An đọc “đất” lần 3:
 
-`an_d-at5_03.wav`
+`an_d-a+t1_03.wav`
 
 **Cấm:** dấu tiếng Việt trong tên file, khoảng trắng, `Bác 2.m4a`, `hoa bac.wav`.
 
@@ -179,6 +204,6 @@ Bạn làm code **không thay** nhóm thu âm. Không có wav thật thì không
 
 ## 9. Việc tiếp theo (sau khi thu xong)
 
-Đưa thư mục wav cho bạn code. Bạn đó bỏ vào `data/wav/`, sửa `data/wordlist.csv`, chạy trích đặc trưng và huấn luyện.
+Đưa thư mục wav cho bạn code. Bạn đó bỏ vào `data/wav/` (tên file khớp cột `code` trong `data/wordlist.csv`), chạy trích đặc trưng và huấn luyện.
 
 Không gửi file giả (hình sin) khi demo với thầy.

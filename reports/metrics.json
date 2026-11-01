@@ -1,0 +1,28 @@
+{
+  "split": "holdout-take-03",
+  "n_train": 3936,
+  "n_test": 633,
+  "n_classes": 3303,
+  "n_samples_total": 4569,
+  "results": [
+    {
+      "name": "knn",
+      "accuracy": 0.6808846761453397
+    }
+  ],
+  "feature_sets": [
+    {
+      "set": "mfcc",
+      "accuracy": 0.636650868878357
+    },
+    {
+      "set": "mfcc_energy_zcr",
+      "accuracy": 0.6287519747235387
+    },
+    {
+      "set": "all",
+      "accuracy": 0.6808846761453397
+    }
+  ],
+  "accuracy_same_speaker_new_take": 0.6808846761453397
+}

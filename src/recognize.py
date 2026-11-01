@@ -4,8 +4,8 @@ from pathlib import Path
 
 import numpy as np
 
-from src.audio import load_mono, preprocess
-from src.config import MODELS_DIR, REJECT_RATIO
+from src.audio import load_mono, preprocess, split_word_segments
+from src.config import MODELS_DIR, REJECT_RATIO, SAMPLE_RATE
 from src.features import extract_vector, vector_to_array
 from src.vni import code_to_text
 
@@ -55,6 +55,51 @@ def predict_array(y, model: dict) -> dict:
 
 def predict_path(path: Path, model: dict | None = None) -> dict:
     model = model or load_model()
-    out = predict_array(load_mono(path), model)
+    out = predict_utterance(load_mono(path), model)
     out["file"] = path.name
     return out
+
+
+def predict_utterance(y, model: dict | None = None, sr: int = SAMPLE_RATE) -> dict:
+    """Nhận dạng đoạn nói: cắt theo khoảng lặng → KNN từng từ → ghép câu."""
+    model = model or load_model()
+    y = np.asarray(y, dtype=np.float32)
+    segments = split_word_segments(y, sr=sr)
+    words: list[dict] = []
+    texts: list[str] = []
+    for i, seg in enumerate(segments, 1):
+        one = predict_array(seg, model)
+        item = {
+            "index": i,
+            "word_text": one.get("word_text"),
+            "word_code": one.get("word_code"),
+            "rejected": bool(one.get("rejected")),
+            "confidence": one.get("confidence"),
+            "mean_distance": one.get("mean_distance"),
+            "duration_s": round(float(seg.size) / sr, 3),
+        }
+        words.append(item)
+        if not item["rejected"] and item["word_text"]:
+            texts.append(str(item["word_text"]))
+
+    text = " ".join(texts).strip()
+    rejected = len(texts) == 0
+    confs = [w["confidence"] for w in words if not w["rejected"] and w.get("confidence") is not None]
+    mean_conf = float(np.mean(confs)) if confs else 0.0
+
+    # tương thích UI cũ (một từ) + trường mới cho đoạn
+    first_ok = next((w for w in words if not w["rejected"]), None)
+    return {
+        "text": text,
+        "word_text": text or None,
+        "word_code": first_ok["word_code"] if first_ok and len(texts) == 1 else None,
+        "rejected": rejected,
+        "confidence": round(mean_conf, 3),
+        "mean_distance": words[0]["mean_distance"] if words else None,
+        "n_segments": len(segments),
+        "n_words": len(texts),
+        "words": words,
+        "neighbors": [],
+        "features": {},
+        "mode": "utterance",
+    }

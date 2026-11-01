@@ -1,16 +1,30 @@
 const $ = (id) => document.getElementById(id);
+
 const fileInput = $("file");
+const drop = $("drop");
 const recBtn = $("rec");
-const stopBtn = $("stop");
 const statusEl = $("status");
 const player = $("player");
 const out = $("out");
+const meta = $("meta");
+const copyBtn = $("copy");
+const healthEl = $("health");
+const levelCanvas = $("level");
+const levelCtx = levelCanvas.getContext("2d");
 
 let recCtx = null;
 let recChunks = [];
 let recNode = null;
 let recSource = null;
 let recStream = null;
+let analyser = null;
+let levelRaf = 0;
+let recording = false;
+let lastText = "";
+
+function setStatus(text) {
+  statusEl.textContent = text;
+}
 
 function encodeWav(float32, sampleRate) {
   const n = float32.length;
@@ -41,77 +55,178 @@ function encodeWav(float32, sampleRate) {
   return new Blob([buf], { type: "audio/wav" });
 }
 
+function drawIdleLevel() {
+  const w = levelCanvas.width;
+  const h = levelCanvas.height;
+  levelCtx.clearRect(0, 0, w, h);
+  levelCtx.beginPath();
+  levelCtx.arc(w / 2, h / 2, 78, 0, Math.PI * 2);
+  levelCtx.strokeStyle = "rgba(13, 138, 124, 0.18)";
+  levelCtx.lineWidth = 3;
+  levelCtx.stroke();
+}
+
+function drawLevelFrame() {
+  if (!analyser) return;
+  const w = levelCanvas.width;
+  const h = levelCanvas.height;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(data);
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = (data[i] - 128) / 128;
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / data.length);
+  const radius = 78 + Math.min(42, rms * 110);
+
+  levelCtx.clearRect(0, 0, w, h);
+  levelCtx.beginPath();
+  levelCtx.arc(w / 2, h / 2, radius, 0, Math.PI * 2);
+  levelCtx.strokeStyle = "rgba(194, 59, 59, 0.45)";
+  levelCtx.lineWidth = 4;
+  levelCtx.stroke();
+
+  levelCtx.beginPath();
+  const mid = h / 2;
+  const left = 40;
+  const right = w - 40;
+  levelCtx.moveTo(left, mid);
+  for (let i = 0; i < data.length; i++) {
+    const x = left + ((right - left) * i) / data.length;
+    const y = mid + ((data[i] - 128) / 128) * 36;
+    levelCtx.lineTo(x, y);
+  }
+  levelCtx.strokeStyle = "rgba(15, 42, 50, 0.35)";
+  levelCtx.lineWidth = 1.5;
+  levelCtx.stroke();
+
+  levelRaf = requestAnimationFrame(drawLevelFrame);
+}
+
+function stopLevel() {
+  cancelAnimationFrame(levelRaf);
+  analyser = null;
+  drawIdleLevel();
+}
+
+function setTranscript(html, { empty = false, reject = false, text = "" } = {}) {
+  out.innerHTML = html;
+  out.dataset.empty = empty ? "true" : "false";
+  out.classList.toggle("reject", reject);
+  out.classList.remove("fresh");
+  void out.offsetWidth;
+  out.classList.add("fresh");
+  lastText = text;
+  copyBtn.disabled = !text;
+}
+
 async function sendBlob(blob, name) {
-  statusEl.textContent = "Đang nhận dạng…";
-  player.src = URL.createObjectURL(blob);
+  setStatus("Đang chuyển thành chữ…");
+  const url = URL.createObjectURL(blob);
+  player.src = url;
+  player.classList.add("show");
+
   const fd = new FormData();
   fd.append("file", blob, name);
-  const res = await fetch("/api/predict", { method: "POST", body: fd });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    out.innerHTML = `<h2>2. Kết quả</h2><p class="reject">${data.detail || "Lỗi nhận dạng"}</p>`;
-    statusEl.textContent = "Lỗi";
+  let res;
+  let data = {};
+  try {
+    res = await fetch("/api/predict", { method: "POST", body: fd });
+    data = await res.json().catch(() => ({}));
+  } catch (err) {
+    setTranscript("Không kết nối được máy chủ.", { reject: true });
+    setStatus("Lỗi kết nối");
+    meta.hidden = true;
     return;
   }
+
+  if (!res.ok) {
+    const msg = data.detail || "Lỗi nhận dạng";
+    setTranscript(msg, { reject: true });
+    setStatus("Lỗi");
+    meta.hidden = true;
+    return;
+  }
+
   renderResult(data);
-  statusEl.textContent = "Xong";
+  setStatus("Xong");
 }
 
 function renderResult(data) {
   if (data.rejected) {
-    out.innerHTML = `
-      <h2>2. Kết quả</h2>
-      <p class="reject">Không chắc — có thể nhiễu hoặc từ ngoài danh sách.</p>
-      <p class="meta">Khoảng cách trung bình: ${data.mean_distance}</p>
-    `;
+    setTranscript("Không nhận diện được đoạn này. Thử nói rõ hơn, nghỉ giữa các từ, hoặc thu lại.", {
+      reject: true,
+    });
+    meta.hidden = false;
+    meta.textContent = `Đoạn con: ${data.n_segments ?? 0}`;
     return;
   }
-  const nb = (data.neighbors || [])
-    .map((n) => `<li><span>${n.word_text} <span class="meta">${n.word_code}</span></span><span>${n.distance}</span></li>`)
-    .join("");
-  const f = data.features || {};
-  out.innerHTML = `
-    <h2>2. Kết quả</h2>
-    <div class="word">${data.word_text}</div>
-    <p class="meta">${data.word_code} · tin cậy ${Math.round((data.confidence || 0) * 100)}%</p>
-    <p class="meta">Năng lượng ${f.energy_mean} · ZCR ${f.zcr_mean} · Pitch ${f.pitch_mean} Hz</p>
-    <ul class="neighbors">${nb}</ul>
-  `;
+
+  const text = data.text || data.word_text || "";
+  setTranscript(text, { text });
+  meta.hidden = false;
+  meta.textContent = [
+    data.n_words != null ? `${data.n_words} từ` : null,
+    data.n_segments != null ? `${data.n_segments} đoạn` : null,
+    data.confidence != null ? `Tin cậy TB ${Math.round(data.confidence * 100)}%` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-fileInput.addEventListener("change", () => {
-  const f = fileInput.files[0];
-  if (f) sendBlob(f, f.name);
-});
+async function startRec() {
+  if (recording) return;
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    setStatus("Không mở được mic — kiểm tra quyền trình duyệt");
+    return;
+  }
 
-recBtn.addEventListener("click", async () => {
-  recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   recCtx = new AudioContext({ sampleRate: 16000 });
   recSource = recCtx.createMediaStreamSource(recStream);
+  analyser = recCtx.createAnalyser();
+  analyser.fftSize = 2048;
   recNode = recCtx.createScriptProcessor(4096, 1, 1);
   recChunks = [];
   recNode.onaudioprocess = (e) => {
     recChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
   };
-  recSource.connect(recNode);
+  recSource.connect(analyser);
+  analyser.connect(recNode);
   const mute = recCtx.createGain();
   mute.gain.value = 0;
   recNode.connect(mute);
   mute.connect(recCtx.destination);
-  recBtn.disabled = true;
-  stopBtn.disabled = false;
-  statusEl.textContent = "Đang thu… nói một từ rồi bấm Dừng";
-});
 
-stopBtn.addEventListener("click", async () => {
-  stopBtn.disabled = true;
-  recBtn.disabled = false;
+  recording = true;
+  recBtn.classList.add("recording");
+  recBtn.setAttribute("aria-pressed", "true");
+  setStatus("Đang nghe… nói đoạn, nghỉ ngắn giữa các từ, rồi bấm mic để dừng");
+  drawLevelFrame();
+}
+
+async function stopRec() {
+  if (!recording) return;
+  recording = false;
+  recBtn.classList.remove("recording");
+  recBtn.setAttribute("aria-pressed", "false");
+  stopLevel();
+
   const sr = recCtx.sampleRate || 16000;
-  recNode.disconnect();
-  recSource.disconnect();
+  try {
+    recNode.disconnect();
+    recSource.disconnect();
+  } catch (_) {}
   recStream.getTracks().forEach((t) => t.stop());
   await recCtx.close();
+
   const len = recChunks.reduce((a, c) => a + c.length, 0);
+  if (len < sr * 0.15) {
+    setStatus("Đoạn quá ngắn — thu lại");
+    return;
+  }
   const samples = new Float32Array(len);
   let o = 0;
   recChunks.forEach((c) => {
@@ -119,23 +234,73 @@ stopBtn.addEventListener("click", async () => {
     o += c.length;
   });
   const blob = encodeWav(samples, sr);
-  sendBlob(blob, "mic.wav");
+  await sendBlob(blob, "mic.wav");
+}
+
+recBtn.addEventListener("click", () => {
+  if (recording) stopRec();
+  else startRec();
 });
 
-fetch("/api/metrics")
-  .then((r) => (r.ok ? r.json() : null))
-  .then((m) => {
-    if (!m) return;
-    const rows = (m.results || [])
-      .map((x) => `<tr><td>${x.name}</td><td>${(x.accuracy * 100).toFixed(1)}%</td></tr>`)
-      .join("");
-    const extra = m.accuracy_new_speaker != null
-      ? `<p class="meta">Giọng quen ${(m.accuracy_known_speaker * 100).toFixed(1)}% · giọng mới ${(m.accuracy_new_speaker * 100).toFixed(1)}%</p>`
-      : "";
-    $("metrics").innerHTML = `
-      <h2>3. Độ chính xác lần huấn luyện</h2>
-      <table><thead><tr><th>Thuật toán</th><th>Accuracy</th></tr></thead><tbody>${rows}</tbody></table>
-      ${extra}
-    `;
+function handleFiles(files) {
+  const f = files && files[0];
+  if (f) sendBlob(f, f.name);
+}
+
+fileInput.addEventListener("change", () => handleFiles(fileInput.files));
+
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    fileInput.click();
+  }
+});
+
+["dragenter", "dragover"].forEach((ev) => {
+  drop.addEventListener(ev, (e) => {
+    e.preventDefault();
+    drop.classList.add("dragover");
+  });
+});
+["dragleave", "drop"].forEach((ev) => {
+  drop.addEventListener(ev, (e) => {
+    e.preventDefault();
+    drop.classList.remove("dragover");
+  });
+});
+drop.addEventListener("drop", (e) => {
+  handleFiles(e.dataTransfer.files);
+});
+
+copyBtn.addEventListener("click", async () => {
+  if (!lastText) return;
+  try {
+    await navigator.clipboard.writeText(lastText);
+    copyBtn.textContent = "Đã chép";
+    setTimeout(() => {
+      copyBtn.textContent = "Sao chép";
+    }, 1200);
+  } catch {
+    copyBtn.textContent = "Không chép được";
+  }
+});
+
+fetch("/api/health")
+  .then((r) => r.json())
+  .then((h) => {
+    if (h.model) {
+      healthEl.textContent = "Model sẵn sàng";
+      healthEl.className = "badge badge-ok";
+    } else {
+      healthEl.textContent = "Chưa train model";
+      healthEl.className = "badge badge-off";
+      healthEl.title = "Chạy extract_features.py rồi train.py";
+    }
   })
-  .catch(() => {});
+  .catch(() => {
+    healthEl.textContent = "Máy chủ lỗi";
+    healthEl.className = "badge badge-off";
+  });
+
+drawIdleLevel();

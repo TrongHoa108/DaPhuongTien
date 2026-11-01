@@ -1,6 +1,8 @@
-# Nhận dạng đơn từ tiếng Việt (Speech-to-Text)
+# VietWord STT — Nhận dạng đơn từ tiếng Việt
 
-Đồ án: chuyển **file âm thanh một từ** thành **văn bản**, dùng đặc trưng âm thanh + KNN. Không dùng mô hình học sâu.
+Đề tài 2: chuyển **file âm thanh một từ** thành **văn bản** (isolated word), dùng MFCC + năng lượng + ZCR + pitch và **KNN**. Không bắt buộc học sâu.
+
+Báo cáo bám 7 mục đề: xem [BAO_CAO.md](BAO_CAO.md).
 
 ## Cài đặt
 
@@ -10,61 +12,55 @@ python -m venv .venv
 .\.venv\Scripts\pip.exe install -r requirements.txt
 ```
 
-## Dữ liệu thu âm
+## Dữ liệu
 
-Đặt file vào `data/wav/`, tên:
+| File / thư mục | Vai trò |
+|---|---|
+| `data/wordlist.csv` | Danh sách từ + mã VNI |
+| `data/thu_am_HT/` | Bản thu gốc (giải nén từ `thu_am_HT.zip`) |
+| `data/wav/` | Wav đã lọc (chỉ file thu thật) để train |
+| `data/features.csv` | Đặc trưng theo từ / người |
+| `data/models/knn.joblib` | Model KNN |
+| `reports/` | Accuracy, confusion matrix |
 
-`{nguoi}_{ma_tu}_{lan}.wav`
+Tên file: `{nguoi}_{ma}_{lan}.wav`  
+Ví dụ: `caotuankiet_bac1_01.wav`
 
-Ví dụ: `hoa_bac1_02.wav`, `minh_cang3_01.wav`, `an_d-at5_03.wav`
+Mã VNI: `0` không dấu; `1–5` sắc huyền hỏi ngã nặng; â/ô/ê → `a+/o+/e+`; ă/ơ/ư → `aa/oo/uu`; đ → `d-`.
 
-Quy ước mã (đề bài):
-
-- Không dấu: số `0` (`ba` → `ba0`)
-- Sắc huyền hỏi ngã nặng: `1 2 3 4 5`
-- â ô ê → `a+` `o+` `e+`
-- ă ơ ư → `aa` `oo` `uu`
-- đ → `d-`
-
-Sửa `data/wordlist.csv` cho khớp danh sách từ của nhóm (cột `code`, `text`).
-
-Mỗi từ × mỗi người nên có **ít nhất 3 lần đọc**.
-
-## Chạy pipeline
+## Pipeline
 
 ```powershell
-# (tuỳ chọn) wav giả để thử hệ thống — không dùng khi báo cáo
-python scripts/make_dummy_data.py
+# 1) Gom thu âm thật vào data/wav (bỏ file im lặng)
+.\.venv\Scripts\python.exe scripts\import_recordings.py --clear --speaker caotuankiet
 
-python scripts/extract_features.py
-python scripts/train.py
-python -m uvicorn app.main:app --reload --port 8000
+# 2) Trích đặc trưng
+.\.venv\Scripts\python.exe scripts\extract_features.py
+
+# 3) Huấn luyện KNN (+ báo cáo)
+.\.venv\Scripts\python.exe scripts\train.py
+
+# 4) Demo web
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
 Mở http://127.0.0.1:8000 — tải `.wav` hoặc thu mic.
 
-Nhận dạng một file:
-
 ```powershell
-python scripts/predict.py data\wav\hoa_bac1_01.wav
+.\.venv\Scripts\python.exe scripts\predict.py data\wav\caotuankiet_ba0_01.wav
 ```
 
-## Hệ thống (sơ đồ)
+## Sơ đồ nhanh
 
 ```
-WAV → cắt im lặng, 16 kHz, chuẩn hóa
-    → MFCC (13, CMVN) + năng lượng + ZCR + pitch
-    → vector một dòng trong CSV
-    → StandardScaler + KNN (k=5)
-    → từ / từ chối nếu quá xa
+WAV → 16 kHz, trim, chuẩn hóa
+    → MFCC (13) + năng lượng + ZCR + pitch
+    → CSV theo từ / người
+    → StandardScaler + KNN
+    → từ văn bản (hoặc từ chối)
 ```
 
-Model: `data/models/knn.joblib`  
-Đặc trưng: `data/features.csv`  
-Accuracy, confusion matrix: `reports/`
+## Lưu ý
 
-Thuật toán chính: **KNN**. Train còn so sánh Logistic Regression và SVM, và 3 bộ đặc trưng (chỉ MFCC / MFCC+năng lượng+ZCR / đủ).
-
-## Nộp bài
-
-Báo cáo bám 7 mục đề: tìm hiểu isolated word, sơ đồ khối, đặc trưng, CSV theo từ/người, demo + accuracy giọng quen / giọng mới.
+- Model vẫn là **isolated word (KNN)**. Demo hỗ trợ **đoạn nói**: cắt theo khoảng lặng → nhận từng từ → ghép câu. Nên nghỉ ~0,3–0,5 giây giữa các từ.
+- File wav và zip thu âm **không** đẩy lên Git (xem `.gitignore`). Giữ trên Drive / máy local.
