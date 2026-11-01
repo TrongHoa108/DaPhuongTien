@@ -60,6 +60,15 @@ WAV → 16 kHz, trim, chuẩn hóa
     → từ văn bản (hoặc từ chối)
 ```
 
+## Git & deploy
+
+- Repo: https://github.com/TrongHoa108/DaPhuongTien  
+- Nhánh mặc định: **`develop`** (không dùng `main`)  
+- Deploy Render (Docker, chọn branch `develop`):  
+  https://render.com/deploy?repo=https://github.com/TrongHoa108/DaPhuongTien  
+
+Hoặc trên [Render](https://render.com) → New → Web Service → nối repo → branch **`develop`** → Docker.
+
 ## Lưu ý
 
 - Model vẫn là **isolated word (KNN)**. Demo hỗ trợ **đoạn nói**: cắt theo khoảng lặng → nhận từng từ → ghép câu. Nên nghỉ ~0,3–0,5 giây giữa các từ.
