@@ -9,8 +9,10 @@ const out = $("out");
 const meta = $("meta");
 const copyBtn = $("copy");
 const contToggle = $("cont");
+const sentToggle = $("sent");
 const healthEl = $("health");
 let continuous = false;
+function sentenceMode() { return !!(sentToggle && sentToggle.checked); }
 const levelCanvas = $("level");
 const levelCtx = levelCanvas.getContext("2d");
 
@@ -146,6 +148,7 @@ async function sendBlob(blob, name, fromMic = false) {
 
   const fd = new FormData();
   fd.append("file", blob, name);
+  fd.append("mode", sentenceMode() ? "sentence" : "word");
   let res;
   let data = {};
   try {
@@ -202,6 +205,7 @@ function renderResult(data, append = false) {
   meta.hidden = false;
   meta.textContent = [
     data.n_words != null ? `${data.n_words} từ` : null,
+    data.mode === "sentence" && data.n_rejected ? `${data.n_rejected} mảnh ngoài từ vựng` : null,
     data.n_segments != null ? `${data.n_segments} đoạn` : null,
     data.confidence != null ? `Tin cậy TB ${Math.round(data.confidence * 100)}%` : null,
     data.canh_bao === "ban_ghi_nhieu_tu"
@@ -253,23 +257,29 @@ async function startRec() {
   recBtn.setAttribute("aria-pressed", "true");
   setStatus(
     continuous
-      ? "Đang nghe liên tục — nói từng từ, ngừng ~0,8 giây để nhận"
-      : "Đang nghe… nói một từ, hệ thống tự dừng khi bạn ngừng nói",
+      ? sentenceMode()
+        ? "Đang nghe liên tục (chế độ câu) — đọc hết đoạn, ngừng ~1,2 giây để nhận"
+        : "Đang nghe liên tục — nói từng từ, ngừng ~0,8 giây để nhận"
+      : sentenceMode()
+        ? "Đang nghe (chế độ câu)… đọc hết đoạn, hệ thống tự dừng khi bạn ngừng nói"
+        : "Đang nghe… nói một từ, hệ thống tự dừng khi bạn ngừng nói",
   );
   drawLevelFrame();
 
-  // Tự dừng khi đã nói xong (im lặng 0,8 giây) rồi tự gửi đi nhận dạng
+  // Tự dừng khi đã nói xong (chế độ câu cho nghỉ dài hơn) rồi tự gửi đi nhận dạng
+  const silenceMs = sentenceMode() ? 1200 : SILENCE_MS;
+  const maxRec = sentenceMode() ? 30000 : MAX_REC_MS;
   if (autoStopTimer) clearInterval(autoStopTimer);
   autoStopTimer = setInterval(() => {
     if (!recording) return;
     const now = performance.now();
-    if (voiceHeard && now - lastVoiceAt > SILENCE_MS) {
+    if (voiceHeard && now - lastVoiceAt > silenceMs) {
       setStatus("Đã nghe xong — đang chuyển thành chữ…");
       stopRec();
     } else if (!voiceHeard && now - recStartedAt > NO_SPEECH_MS) {
       setStatus("Chưa nghe thấy tiếng nói — thử lại gần micro hơn");
       stopRec();
-    } else if (now - recStartedAt > MAX_REC_MS) {
+    } else if (now - recStartedAt > maxRec) {
       stopRec();
     }
   }, 100);

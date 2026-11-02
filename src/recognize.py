@@ -130,8 +130,15 @@ def _co_tieng_noi(y: np.ndarray, sr: int) -> bool:
     return float(np.sqrt(np.mean(frames ** 2, axis=1)).max()) >= 0.01
 
 
-def predict_utterance(y, model: dict | None = None, sr: int = SAMPLE_RATE) -> dict:
-    """Nhận dạng đoạn nói: cắt theo khoảng lặng → KNN từng từ → ghép câu."""
+def predict_utterance(
+    y, model: dict | None = None, sr: int = SAMPLE_RATE, allow_multi: bool = False,
+) -> dict:
+    """Nhận dạng đoạn nói: cắt theo khoảng lặng → KNN+DTW từng từ → ghép câu.
+
+    Mặc định (allow_multi=False) là bài toán ĐƠN TỪ: file nhiều từ bị từ chối.
+    allow_multi=True là chế độ "Câu": nhận dạng từng mảnh rồi nối — dùng cho
+    mở rộng demo (kết quả từng mảnh bị giới hạn bởi từ vựng và sai số đơn từ).
+    """
     model = model or load_model()
     y = np.asarray(y, dtype=np.float32)
     if not _co_tieng_noi(y, sr):
@@ -139,20 +146,23 @@ def predict_utterance(y, model: dict | None = None, sr: int = SAMPLE_RATE) -> di
             "text": "", "word_text": None, "word_code": None, "rejected": True,
             "confidence": 0.0, "mean_distance": None, "n_segments": 0, "n_words": 0,
             "words": [], "neighbors": [], "features": {},
-            "mode": "utterance", "canh_bao": None, "ly_do": "khong_co_tieng_noi",
+            "mode": "sentence" if allow_multi else "utterance",
+            "canh_bao": None, "ly_do": "khong_co_tieng_noi",
         }
     segments = split_word_segments(y, sr=sr)
-    # Bài toán là NHẬN DẠNG ĐƠN TỪ. File dài hoặc có nhiều khoảng lặng là câu/nhiều
-    # từ → ngoài phạm vi; từ chối rõ ràng thay vì đoán bừa từng mảnh (ra từ vô nghĩa).
-    tong_giay = float(sum(s.size for s in segments)) / sr
-    if len(segments) > 1 or tong_giay > 1.5:
-        return {
-            "text": "", "word_text": None, "word_code": None, "rejected": True,
-            "confidence": 0.0, "mean_distance": None, "n_segments": len(segments),
-            "n_words": 0, "words": [], "neighbors": [], "features": {},
-            "mode": "utterance", "canh_bao": "ban_ghi_nhieu_tu",
-            "ly_do": "ban_ghi_nhieu_tu",
-        }
+    if not allow_multi:
+        # Bài toán là NHẬN DẠNG ĐƠN TỪ. File dài hoặc có nhiều khoảng lặng là
+        # câu/nhiều từ → ngoài phạm vi; từ chối rõ ràng thay vì đoán bừa từng mảnh.
+        tong_giay = float(sum(s.size for s in segments)) / sr
+        if len(segments) > 1 or tong_giay > 1.5:
+            return {
+                "text": "", "word_text": None, "word_code": None, "rejected": True,
+                "confidence": 0.0, "mean_distance": None, "n_segments": len(segments),
+                "n_words": 0, "words": [], "neighbors": [], "features": {},
+                "mode": "utterance", "canh_bao": "ban_ghi_nhieu_tu",
+                "ly_do": "ban_ghi_nhieu_tu",
+            }
+    segments = segments[:40]
     words: list[dict] = []
     texts: list[str] = []
     for i, seg in enumerate(segments, 1):
@@ -172,7 +182,8 @@ def predict_utterance(y, model: dict | None = None, sr: int = SAMPLE_RATE) -> di
 
     text = " ".join(texts).strip()
     rejected = len(texts) == 0
-    canh_bao = None
+    n_bo_qua = sum(1 for w in words if w["rejected"])
+    canh_bao = f"{n_bo_qua} mảnh không khớp từ vựng" if allow_multi and n_bo_qua else None
     confs = [w["confidence"] for w in words if not w["rejected"] and w.get("confidence") is not None]
     mean_conf = float(np.mean(confs)) if confs else 0.0
 
@@ -187,9 +198,10 @@ def predict_utterance(y, model: dict | None = None, sr: int = SAMPLE_RATE) -> di
         "mean_distance": words[0]["mean_distance"] if words else None,
         "n_segments": len(segments),
         "n_words": len(texts),
+        "n_rejected": n_bo_qua,
         "words": words,
         "neighbors": [],
         "features": {},
-        "mode": "utterance",
+        "mode": "sentence" if allow_multi else "utterance",
         "canh_bao": canh_bao,
     }

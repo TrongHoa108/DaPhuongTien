@@ -4,7 +4,7 @@ import io
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -56,12 +56,14 @@ def metrics():
 
 
 @app.post("/api/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(file: UploadFile = File(...), mode: str = Form("word")):
     if not MODEL_PATH.exists():
         raise HTTPException(400, "Chưa có model. Chạy extract + train trước.")
     raw = await file.read()
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = UPLOADS_DIR / (file.filename or "upload.wav")
+    # Lưu đè tên "mic.wav" mỗi lần ghi có thể tranh chấp; đổi tên mỗi bản ghi
+    stem = Path(file.filename or "upload.wav").stem or "mic"
+    tmp = UPLOADS_DIR / f"{stem}.wav"
     tmp.write_bytes(raw)
     try:
         y = load_mono(tmp, sr=SAMPLE_RATE)
@@ -72,6 +74,8 @@ async def predict(file: UploadFile = File(...)):
                 y = np.mean(y, axis=1)
         except Exception as exc:
             raise HTTPException(400, f"Không đọc được file âm thanh: {exc}") from exc
-    result = predict_utterance(y.astype(np.float32), load_model())
+    result = predict_utterance(
+        y.astype(np.float32), load_model(), allow_multi=(mode == "sentence"),
+    )
     result["filename"] = file.filename
     return result
