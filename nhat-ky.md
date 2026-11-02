@@ -1,6 +1,39 @@
 # NHẬT KÝ ĐỒ ÁN — Nhận dạng tiếng nói tiếng Việt (Đề tài 2)
 
-**Cập nhật:** 02/11/2026 · **Trạng thái:** tạm dừng, mai làm tiếp.
+**Cập nhật:** 02/11/2026 · **Trạng thái:** đã thêm chế độ Câu (version A) + tab PhoWhisper (version B).
+
+---
+
+## 0. Phiên mới nhất (02/11/2026)
+
+### Đã chốt 4 câu hỏi
+
+1. Cho phép dùng model có sẵn: **làm cả hai** — A không model ngoài, B dùng PhoWhisper.
+2. Giữ cả hai: tab đơn từ + chế độ câu (A); tab câu PhoWhisper (B).
+3. Model B: **PhoWhisper-small-ct2** (`mad1999/pho-whisper-small-ct2`, 461 MB).
+4. Hiện chữ: sau khi ngừng nói (không có partial streaming).
+
+### Version A — chế độ "Câu" (KNN+DTW, ĐÃ COMMIT — bản push git)
+
+- `src/recognize.py`: `predict_utterance(..., allow_multi=True)` — bỏ từ chối nhiêu từ, cắt theo khoảng lặng, nhận từng mảnh, nối.
+- `app/main.py`: `/api/predict` nhận `mode=sentence`. **Fix quan trọng:** file upload không phải 16 kHz giờ được resample (trước đây bị dùng sai sample rate).
+- UI: checkbox **"Đoạn nhiều từ (câu)"**; nghe liên tục nghỉ 1,2 s, tối đa 30 s/bản ghi.
+- Test: câu ghép 4 từ từ take 03 → 4/4 đúng; `test1.wav` (5 mảnh) → "bố trà ệch", 2 mảnh ngoài từ vựng bị bỏ qua (hiện trong meta).
+- Commits: `c1e319b` (checkpoint DTW), `0fa9ffb` (chế độ câu), `8bfb515` (resample), `06561a3` (README), `25440f1` (BAO_CAO).
+- **Chưa push** — push 403 vì máy đăng nhập `paw1601` không có quyền ghi repo `TrongHoa108`. Chỉ push khi user yêu cầu.
+
+### Version B — PhoWhisper (CHƯA COMMIT, giữ local)
+
+- `src/asr.py` (mới), `app/main.py` (`/api/asr`), `app.js` (toggle "Câu bằng PhoWhisper"), `index.html` (chọn engine) — **git status phải đúng 4 file này**.
+- Model: `data/models/pho-whisper-small-ct2` (461 MB, gitignore chặn).
+- `pip install faster-whisper nvidia-cublas-cu12 nvidia-cudnn-cu12` trong venv (requirements.txt giữ nguyên cho bản A).
+- **Sự cố đã hiểu:** CUDA "thành công" ban đầu là ảo (VAD nuốt hết audio → encode không chạy). Thật ra thiếu `cublas64_12.dll`; ctranslate2 4.8.4 chỉ đóng gói cudnn, không cublas. Fix: preload cublas bằng `ctypes.CDLL(path_tuyet_doi)` từ `.venv\Lib\site-packages\nvidia\cublas\bin` trong `_dang_ky_dll_cuda()`. **Đừng sửa PATH** — sửa PATH làm treo ở lần inference đầu (đã gặp).
+- Hiệu năng đo trên file 4,6 s: **GPU 0,21–0,34 s**, CPU 1,5–2 s. Device hiện `cuda/int8_float16`.
+- `test1.wav` → "bởi nhà học một bà bác không mưa nắng." (chưa đối chiếu chữ thật).
+
+### Lỗi còn mở (ghi đúng trong ngày)
+
+- **Mic web lệch kênh so với data train** → đơn từ qua mic sai nhiều: RMS mic 0,034–0,069 vs train ~0,13; khung lặng trong đoạn 21% vs 0%; năng lượng >3,4 kHz thấp hơn hẳn. `mic.wav` nói gì chưa ghi nhận được — quét DTW toàn từ vựng tốt nhất 1,638 ("cào"), họ vần -ao. **Cách sửa:** thu thêm dữ liệu gán nhãn qua chính mic web (ghi tên từ vào tên file) rồi chạy lại extract + train + build templates.
 
 ---
 
@@ -91,7 +124,7 @@ Tiến trình: 67,4% → 68,6% (Manhattan, k=1, YIN, augmentation) → **78,6%**
 
 ---
 
-## 5. Phương án tiếp theo (CHƯA CHỐT — cần quyết định đầu tiên vào ngày mai)
+## 5. Phương án tiếp theo (ĐÃ CHỐT — xem mục 0)
 
 ### Đã khảo sát
 
@@ -119,7 +152,7 @@ Tiến trình: 67,4% → 68,6% (Manhattan, k=1, YIN, augmentation) → **78,6%**
 
 ---
 
-## 6. Ngày mai bắt đầu từ đâu (thứ tự)
+## 6. Lịch cũ (ngày 02/11 đã làm xong — xem mục 0)
 
 1. Chốt 4 câu hỏi ở mục 5.
 2. Nếu được phép: `pip install faster-whisper`, tải `mad1999/pho-whisper-small-ct2` (hoặc medium-ct2).
