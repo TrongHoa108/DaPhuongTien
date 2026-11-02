@@ -179,6 +179,8 @@ Ghi chú: bảng trên dùng ngưỡng từ chối của model (khoảng cách T
 
 **Giọng mới (người khác):** dữ liệu hiện chỉ có **một người nói** nên chưa thể đo accuracy với người thật thứ hai. Bảng trên đánh giá bằng cách **mô phỏng** biến đổi giọng (dịch cao độ, đổi tốc độ) trên chính các file take 03 — không phải người nói mới thật. Khi có thành viên khác thu cùng danh sách, import wav với `--speaker <ten_nguoi_moi>` rồi chạy lại `scripts/evaluate_voices.py`.
 
+**Chế độ "Đoạn nhiều từ (câu)" (mở rộng — vẫn ở mức từ):** UI có ô chọn riêng, API chấp nhận `mode=sentence`. Quy trình: cắt bản ghi theo khoảng lặng (`librosa.effects.split`, top_db=28, mảnh 0,12–1,6 s) → nhận dạng từng mảnh bằng chính hệ KNN+DTW → nối các mảnh hợp lệ thành câu. Vẫn là kỹ thuật **nhận dạng đơn từ ghép lại**, không phải giải mã câu liên tục. Hạn chế: mảnh ngoài từ vựng (6.196 từ) bị bỏ qua; từ đọc liền không nghỉ bị gộp; sai số từng mảnh (~78,6%) cộng dồn nên câu dài dễ sai nhiều chữ. Với yêu cầu nhận dạng câu thật thì đây là giới hạn phương pháp đơn từ, không phải lỗi cài đặt.
+
 ---
 
 ## Cách chạy lại toàn bộ pipeline
