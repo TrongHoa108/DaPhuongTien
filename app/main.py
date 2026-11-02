@@ -65,15 +65,20 @@ async def predict(file: UploadFile = File(...), mode: str = Form("word")):
     stem = Path(file.filename or "upload.wav").stem or "mic"
     tmp = UPLOADS_DIR / f"{stem}.wav"
     tmp.write_bytes(raw)
+    sr_file = SAMPLE_RATE
     try:
         y = load_mono(tmp, sr=SAMPLE_RATE)
     except Exception:
         try:
-            y, sr = sf.read(io.BytesIO(raw), always_2d=False)
+            y, sr_file = sf.read(io.BytesIO(raw), always_2d=False)
             if y.ndim > 1:
                 y = np.mean(y, axis=1)
         except Exception as exc:
             raise HTTPException(400, f"Không đọc được file âm thanh: {exc}") from exc
+    if sr_file != SAMPLE_RATE:
+        import librosa
+
+        y = librosa.resample(y.astype(np.float32), orig_sr=int(sr_file), target_sr=SAMPLE_RATE)
     result = predict_utterance(
         y.astype(np.float32), load_model(), allow_multi=(mode == "sentence"),
     )
