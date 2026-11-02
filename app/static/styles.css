@@ -391,6 +391,23 @@ body {
   display: block;
 }
 
+.cont-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cont-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--teal);
+}
+
 .meta-line {
   margin: 10px 0 0;
   font-size: 0.86rem;

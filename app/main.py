@@ -15,7 +15,7 @@ import numpy as np
 import soundfile as sf
 
 from src.audio import load_mono
-from src.config import FEATURES_PATH, MODELS_DIR, REPORTS_DIR, SAMPLE_RATE, UPLOADS_DIR
+from src.config import FEATURES_PATH, MODEL_PATH, REPORTS_DIR, SAMPLE_RATE, UPLOADS_DIR
 from src.recognize import load_model, predict_utterance
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -30,10 +30,19 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {
-        "model": (MODELS_DIR / "knn.joblib").exists(),
+    out = {
+        "model": MODEL_PATH.exists(),
+        "model_path": str(MODEL_PATH),
         "features": FEATURES_PATH.exists(),
     }
+    if out["model"]:
+        try:
+            from src.recognize import load_model
+
+            out["num_words"] = int(len(load_model()["label_encoder"].classes_))
+        except Exception:  # noqa: BLE001
+            pass
+    return out
 
 
 @app.get("/api/metrics")
@@ -48,7 +57,7 @@ def metrics():
 
 @app.post("/api/predict")
 async def predict(file: UploadFile = File(...)):
-    if not (MODELS_DIR / "knn.joblib").exists():
+    if not MODEL_PATH.exists():
         raise HTTPException(400, "Chưa có model. Chạy extract + train trước.")
     raw = await file.read()
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)

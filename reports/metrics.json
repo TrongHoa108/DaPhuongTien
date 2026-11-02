@@ -1,28 +1,28 @@
 {
   "split": "holdout-take-03",
-  "n_train": 3936,
-  "n_test": 633,
-  "n_classes": 3303,
-  "n_samples_total": 4569,
+  "n_train": 41244,
+  "n_test": 678,
+  "n_classes": 6196,
+  "n_samples_total": 41922,
   "results": [
     {
       "name": "knn",
-      "accuracy": 0.6808846761453397
+      "accuracy": 0.6858407079646017
     }
   ],
   "feature_sets": [
     {
       "set": "mfcc",
-      "accuracy": 0.636650868878357
+      "accuracy": 0.6386430678466076
     },
     {
       "set": "mfcc_energy_zcr",
-      "accuracy": 0.6287519747235387
+      "accuracy": 0.6548672566371682
     },
     {
       "set": "all",
-      "accuracy": 0.6808846761453397
+      "accuracy": 0.6858407079646017
     }
   ],
-  "accuracy_same_speaker_new_take": 0.6808846761453397
+  "accuracy_same_speaker_new_take": 0.6858407079646017
 }

@@ -11,7 +11,8 @@ from src.vni import parse_wav_name
 def load_wordlist() -> dict[str, str]:
     if not WORDLIST_PATH.exists():
         return {}
-    df = pd.read_csv(WORDLIST_PATH)
+    # keep_default_na=False: từ "nan" trong danh sách là một từ thật, không phải NaN
+    df = pd.read_csv(WORDLIST_PATH, keep_default_na=False)
     return dict(zip(df["code"].astype(str), df["text"].astype(str)))
 
 

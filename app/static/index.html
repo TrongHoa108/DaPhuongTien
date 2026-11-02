@@ -31,7 +31,8 @@
       <section class="hero-block">
         <h1 class="product-title">VietWord STT</h1>
         <p class="lede">
-          Thu mic hoặc tải file âm thanh. Nói rõ từng từ, nghỉ ngắn giữa các từ — hệ thống cắt đoạn rồi ghép thành câu.
+          Nhấn mic và nói <strong>một từ</strong> trong danh sách — hệ thống tự dừng khi bạn ngừng nói
+          rồi trả ra chữ. Hoặc tải lên một file WAV của đúng một từ.
         </p>
       </section>
 
@@ -50,8 +51,12 @@
             </svg>
           </button>
         </div>
-        <p id="status" class="status">Sẵn sàng — nhấn mic để thu đoạn nói</p>
-        <p class="hint-line">Mỗi từ thuộc danh sách đã thu. Nghỉ ~0,3–0,5 giây giữa các từ.</p>
+        <p id="status" class="status">Sẵn sàng — nhấn mic rồi nói một từ</p>
+        <p class="hint-line">Mỗi lần một từ, dài 0,4–1,2 giây. Hệ thống tự dừng khi bạn ngừng nói.</p>
+        <label class="cont-toggle">
+          <input type="checkbox" id="cont" />
+          <span>Nghe liên tục — nói từng từ, chữ tự nối vào văn bản</span>
+        </label>
 
         <div id="drop" class="dropzone" tabindex="0" role="button" aria-label="Kéo thả hoặc chọn file âm thanh">
           <input id="file" type="file" accept="audio/*,.wav,.mp3,.m4a,.webm" hidden />

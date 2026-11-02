@@ -23,7 +23,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.svm import SVC
 
-from src.config import FEATURE_COLUMNS, FEATURES_PATH, K_NEIGHBORS, MODELS_DIR, REPORTS_DIR, configure_console
+from src.config import (
+    FEATURE_COLUMNS, FEATURES_PATH, K_NEIGHBORS, KNN_METRIC, MODELS_DIR, REPORTS_DIR, configure_console,
+)
 from src.dataset import load_features
 
 configure_console()
@@ -133,7 +135,9 @@ def main() -> None:
 
     k = min(K_NEIGHBORS, max(1, len(train) // 2))
     models = {
-        "knn": _pipeline(KNeighborsClassifier(n_neighbors=k, weights="distance")),
+        "knn": _pipeline(KNeighborsClassifier(
+            n_neighbors=k, weights="distance", metric=KNN_METRIC,
+        )),
     }
     if n_classes <= COMPARE_MAX_CLASSES and len(train) >= 20:
         models["logreg"] = _pipeline(LogisticRegression(max_iter=500, class_weight="balanced"))
@@ -209,7 +213,9 @@ def main() -> None:
         ("mfcc_energy_zcr", mfcc_cols + ["energy_mean", "zcr_mean"]),
         ("all", list(FEATURE_COLUMNS)),
     ):
-        p = _pipeline(KNeighborsClassifier(n_neighbors=k, weights="distance"))
+        p = _pipeline(KNeighborsClassifier(
+            n_neighbors=k, weights="distance", metric=KNN_METRIC,
+        ))
         p.fit(train[cols].to_numpy(), y_tr)
         acc = float(accuracy_score(y_te, p.predict(test[cols].to_numpy())))
         feature_results.append({"set": sname, "accuracy": acc})

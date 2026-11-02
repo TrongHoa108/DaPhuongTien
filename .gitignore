@@ -9,6 +9,7 @@ data/features.csv
 data/models/*
 !data/models/.gitkeep
 !data/models/knn.joblib
+!data/models/dtw_templates.npz
 data/wav/*.wav
 !data/wav/.gitkeep
 

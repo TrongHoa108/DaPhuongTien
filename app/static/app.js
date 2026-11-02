@@ -8,7 +8,9 @@ const player = $("player");
 const out = $("out");
 const meta = $("meta");
 const copyBtn = $("copy");
+const contToggle = $("cont");
 const healthEl = $("health");
+let continuous = false;
 const levelCanvas = $("level");
 const levelCtx = levelCanvas.getContext("2d");
 
@@ -21,6 +23,14 @@ let analyser = null;
 let levelRaf = 0;
 let recording = false;
 let lastText = "";
+let voiceHeard = false;
+let lastVoiceAt = 0;
+let recStartedAt = 0;
+let autoStopTimer = 0;
+const SILENCE_MS = 800;      // ngừng nói quá lâu thì tự dừng
+const VOICE_RMS = 0.018;     // ngưỡng coi là có tiếng nói
+const NO_SPEECH_MS = 6000;   // không nghe thấy gì thì dừng
+const MAX_REC_MS = 15000;    // an toàn
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -121,7 +131,14 @@ function setTranscript(html, { empty = false, reject = false, text = "" } = {}) 
   copyBtn.disabled = !text;
 }
 
-async function sendBlob(blob, name) {
+async function sendBlob(blob, name, fromMic = false) {
+  const restart = () => {
+    if (fromMic && continuous) {
+      setTimeout(() => {
+        if (continuous && !recording) startRec();
+      }, 300);
+    }
+  };
   setStatus("Đang chuyển thành chữ…");
   const url = URL.createObjectURL(blob);
   player.src = url;
@@ -138,38 +155,58 @@ async function sendBlob(blob, name) {
     setTranscript("Không kết nối được máy chủ.", { reject: true });
     setStatus("Lỗi kết nối");
     meta.hidden = true;
+    restart();
     return;
   }
 
   if (!res.ok) {
     const msg = data.detail || "Lỗi nhận dạng";
-    setTranscript(msg, { reject: true });
-    setStatus("Lỗi");
-    meta.hidden = true;
+    if (continuous && fromMic) {
+      setStatus(msg);
+    } else {
+      setTranscript(msg, { reject: true });
+      setStatus("Lỗi");
+      meta.hidden = true;
+    }
+    restart();
     return;
   }
 
-  renderResult(data);
+  renderResult(data, fromMic && continuous);
   setStatus("Xong");
+  restart();
 }
 
-function renderResult(data) {
+function renderResult(data, append = false) {
   if (data.rejected) {
-    setTranscript("Không nhận diện được đoạn này. Thử nói rõ hơn, nghỉ giữa các từ, hoặc thu lại.", {
-      reject: true,
-    });
+    const msg =
+      data.ly_do === "ban_ghi_nhieu_tu"
+        ? "Bản ghi có vẻ gồm nhiều từ. Hệ thống nhận dạng đơn từ — hãy nói/ghi âm đúng một từ (0,4–1,2 giây)."
+        : data.ly_do === "khong_co_tieng_noi"
+          ? "Không nghe thấy tiếng nói. Hãy nói một từ, gần micro hơn rồi thử lại."
+          : "Không nhận diện được. Thử nói rõ hơn và thu lại.";
+    if (append) {
+      // Đang nghe liên tục: giữ nguyên văn bản đã có, chỉ báo trạng thái
+      setStatus(data.ly_do === "ban_ghi_nhieu_tu" ? "Đoạn vừa rồi có vẻ nhiều từ — nói từng từ" : "Không nghe rõ — nói lại");
+      return;
+    }
+    setTranscript(msg, { reject: true });
     meta.hidden = false;
-    meta.textContent = `Đoạn con: ${data.n_segments ?? 0}`;
+    meta.textContent = data.n_segments != null ? `Đoạn con: ${data.n_segments}` : "";
     return;
   }
 
   const text = data.text || data.word_text || "";
-  setTranscript(text, { text });
+  const full = append && lastText ? `${lastText} ${text}` : text;
+  setTranscript(full, { text: full });
   meta.hidden = false;
   meta.textContent = [
     data.n_words != null ? `${data.n_words} từ` : null,
     data.n_segments != null ? `${data.n_segments} đoạn` : null,
     data.confidence != null ? `Tin cậy TB ${Math.round(data.confidence * 100)}%` : null,
+    data.canh_bao === "ban_ghi_nhieu_tu"
+      ? "Bản ghi có vẻ gồm nhiều từ — hệ thống nhận dạng đơn từ (mỗi lần một từ)"
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -191,7 +228,15 @@ async function startRec() {
   recNode = recCtx.createScriptProcessor(4096, 1, 1);
   recChunks = [];
   recNode.onaudioprocess = (e) => {
-    recChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    const chunk = e.inputBuffer.getChannelData(0);
+    recChunks.push(new Float32Array(chunk));
+    let sum = 0;
+    for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
+    const rms = Math.sqrt(sum / chunk.length);
+    if (rms > VOICE_RMS) {
+      voiceHeard = true;
+      lastVoiceAt = performance.now();
+    }
   };
   recSource.connect(analyser);
   analyser.connect(recNode);
@@ -201,15 +246,42 @@ async function startRec() {
   mute.connect(recCtx.destination);
 
   recording = true;
+  voiceHeard = false;
+  lastVoiceAt = 0;
+  recStartedAt = performance.now();
   recBtn.classList.add("recording");
   recBtn.setAttribute("aria-pressed", "true");
-  setStatus("Đang nghe… nói đoạn, nghỉ ngắn giữa các từ, rồi bấm mic để dừng");
+  setStatus(
+    continuous
+      ? "Đang nghe liên tục — nói từng từ, ngừng ~0,8 giây để nhận"
+      : "Đang nghe… nói một từ, hệ thống tự dừng khi bạn ngừng nói",
+  );
   drawLevelFrame();
+
+  // Tự dừng khi đã nói xong (im lặng 0,8 giây) rồi tự gửi đi nhận dạng
+  if (autoStopTimer) clearInterval(autoStopTimer);
+  autoStopTimer = setInterval(() => {
+    if (!recording) return;
+    const now = performance.now();
+    if (voiceHeard && now - lastVoiceAt > SILENCE_MS) {
+      setStatus("Đã nghe xong — đang chuyển thành chữ…");
+      stopRec();
+    } else if (!voiceHeard && now - recStartedAt > NO_SPEECH_MS) {
+      setStatus("Chưa nghe thấy tiếng nói — thử lại gần micro hơn");
+      stopRec();
+    } else if (now - recStartedAt > MAX_REC_MS) {
+      stopRec();
+    }
+  }, 100);
 }
 
 async function stopRec() {
   if (!recording) return;
   recording = false;
+  if (autoStopTimer) {
+    clearInterval(autoStopTimer);
+    autoStopTimer = 0;
+  }
   recBtn.classList.remove("recording");
   recBtn.setAttribute("aria-pressed", "false");
   stopLevel();
@@ -225,6 +297,7 @@ async function stopRec() {
   const len = recChunks.reduce((a, c) => a + c.length, 0);
   if (len < sr * 0.15) {
     setStatus("Đoạn quá ngắn — thu lại");
+    if (continuous) setTimeout(() => { if (continuous && !recording) startRec(); }, 300);
     return;
   }
   const samples = new Float32Array(len);
@@ -234,13 +307,32 @@ async function stopRec() {
     o += c.length;
   });
   const blob = encodeWav(samples, sr);
-  await sendBlob(blob, "mic.wav");
+  await sendBlob(blob, "mic.wav", true);
 }
 
 recBtn.addEventListener("click", () => {
-  if (recording) stopRec();
-  else startRec();
+  if (recording) {
+    continuous = false;
+    if (contToggle) contToggle.checked = false;
+    stopRec();
+  } else {
+    startRec();
+  }
 });
+
+if (contToggle) {
+  contToggle.addEventListener("change", () => {
+    continuous = contToggle.checked;
+    if (continuous) {
+      lastText = "";
+      setTranscript("Kết quả sẽ hiện ở đây…", { empty: true });
+      setStatus("Đang nghe liên tục — nói từng từ…");
+      if (!recording) startRec();
+    } else {
+      setStatus("Đã tắt nghe liên tục");
+    }
+  });
+}
 
 function handleFiles(files) {
   const f = files && files[0];
