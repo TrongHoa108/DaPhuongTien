@@ -80,18 +80,19 @@ Chi tiết: `reports/metrics.json`, `reports/classification_report.txt`, `report
 
 ## Phạm vi và cách demo
 
-Hệ thống là **nhận dạng đơn từ**: mỗi file/lần thu = **một từ** (khoảng 0,4–1,2 giây), đúng phạm vi đề bài. Nhận dạng câu liên tục là **ngoài phạm vi**.
+Chính của hệ thống là **nhận dạng đơn từ**: mỗi lần thu = **một từ** (khoảng 0,4–1,2 giây).
 
-- Nói một từ, nghỉ một nhịp trước và sau rồi bấm dừng. Hệ thống **tự dừng sau 0,8 giây im lặng** và tự gửi đi nhận dạng.
+- Nói một từ, nghỉ một nhịp. Hệ thống **tự dừng sau 0,8 giây im lặng** và tự gửi đi nhận dạng.
 - Bật **"Nghe liên tục"** để nói từng từ mà không cần bấm lại: sau mỗi từ, chữ được nối vào văn bản và micro tự nghe tiếp.
-- Không đọc cả cụm/câu: file dài hoặc cắt ra nhiều đoạn sẽ bị **từ chối** với thông báo *"Bản ghi có vẻ gồm nhiều từ"*, không trả từ đoán bừa.
 - File mẫu một từ để thử ngay:
   - `data\wav\caotuankiet_bom0_03.wav` → `bom`
   - `data\wav\caotuankiet_baap1_03.wav` → `bắp`
   - `data\wav\caotuankiet_ac1_03.wav` → `ác`
 - Kiểm tra một file trước khi test: `python scripts\kiem_tra_file.py "file.wav"` — dòng "Đoạn cắt" phải là `1`.
 
-**Giới hạn đã biết:** accuracy 68,6% trên lần đọc mới của cùng người nói; 89% từ chỉ có 1 lần đọc và dữ liệu chỉ có một người nói, nên khoảng 1/3 từ sẽ nhận sai, chủ yếu do nhầm thanh điệu hoặc âm đầu. Đây là giới hạn của dữ liệu/phương pháp đơn giản, không phải lỗi thao tác.
+**Chế độ "Đoạn nhiều từ (câu)" (mở rộng):** cắt bản ghi theo khoảng lặng (nghỉ 0,3 giây giữa từ), nhận dạng **từng mảnh** bằng chính hệ KNN+DTW ở mức từ rồi ghép thành câu. Kết quả bị giới hạn bởi: (1) chỉ nhận được các từ có trong danh sách 6.196 từ — mảnh ngoài từ vựng bị bỏ qua (hiện số trong dòng meta), (2) sai số từng mảnh ~20% cộng dồn, (3) từ đọc liền không nghỉ sẽ bị gộp vào một mảnh. Đây vẫn là kỹ thuật nhận dạng **đơn từ** ghép lại, không phải nhận dạng câu liên tục.
+
+**Giới hạn đã biết:** accuracy 78,6% trên lần đọc mới của cùng người nói (KNN + DTW; KNN thuần 68,6%); 89% từ chỉ có 1 lần đọc và dữ liệu chỉ có một người nói, nên khoảng 1/5–1/3 từ sẽ nhận sai, chủ yếu do nhầm thanh điệu hoặc âm đầu. Bản ghi mic thực tế (âm lượng yếu, nhiễu khác thiết bị thu train) có khoảng cách đặc trưng lệch lớn hơn — nếu nhận sai nhiều trên mic, thu thêm dữ liệu qua cùng đường mic (gán nhãn từ tên file) rồi chạy lại `extract_features.py` + `train.py` + `build_dtw_templates.py` sẽ giảm chênh lệch. Đây là giới hạn của dữ liệu/phương pháp, không phải lỗi thao tác.
 
 ## Sơ đồ nhanh
 
