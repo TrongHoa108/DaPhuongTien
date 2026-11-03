@@ -35,6 +35,17 @@
 
 - **Mic web lệch kênh so với data train** → đơn từ qua mic sai nhiều: RMS mic 0,034–0,069 vs train ~0,13; khung lặng trong đoạn 21% vs 0%; năng lượng >3,4 kHz thấp hơn hẳn. `mic.wav` nói gì chưa ghi nhận được — quét DTW toàn từ vựng tốt nhất 1,638 ("cào"), họ vần -ao. **Cách sửa:** thu thêm dữ liệu gán nhãn qua chính mic web (ghi tên từ vào tên file) rồi chạy lại extract + train + build templates.
 
+### Kết quả thử nghiệm backend (03/11) — sửa lệch kênh mic
+
+- **Trim khung lặng kỹ hơn (top_db=20):** mic 1,638→1,603 nhưng in-domain TỆ đi (median từ-đúng 1,325→1,458) → **bỏ**.
+- **Bù tilt tần số cao ở query (+3…+12 dB):** không đổi gì (CMVN của DTW đã tilt-invariant) → **bỏ**.
+- Kết luận: không có thắng rẻ phía query; **hướng duy nhất đáng làm = nhập dữ liệu thu cùng kênh mic**.
+- **Đã thêm `scripts/nhap_giong_mic.py`** (commit `c00961f`): kiểm tra từng file (1 đoạn, ≤1,5 s, có tiếng, mã có trong wordlist) rồi copy vào `data/wav`. Runbook:
+  1. Thu qua mic web, mỗi file một từ, đặt tên `caotuankiet_<ma>_05.wav` (take **05** = kênh mic web; KHÔNG dùng speaker mới — train.py sẽ đổi cách tách test khi thấy ≥2 người).
+  2. `python scripts\nhap_giong_mic.py --src <thu_muc>\ --take (mặc định 05)`
+  3. Chạy lại `extract_features.py --augment...` + `train.py` + `build_dtw_templates.py --augment...` + `evaluate_voices.py`.
+- **Yêu cầu user chốt (03/11): UI đóng băng — không sửa gì thêm ở UI, chỉ đụng backend.**
+
 ---
 
 ## 1. Vị trí, repo, dữ liệu
